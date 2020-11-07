@@ -2,6 +2,7 @@ package external
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -33,7 +34,7 @@ func (ex external) GetPages() (map[int][]images.Image, error) {
 	next := true
 	images := []images.Image{}
 	var err error
-	for next && err != nil {
+	for next && err == nil {
 		images, next, err = ex.getPage(n)
 		pages[n] = images
 		n++
@@ -44,10 +45,14 @@ func (ex external) GetPages() (map[int][]images.Image, error) {
 func (ex external) getPage(page int) ([]images.Image, bool, error) {
 	header := &http.Header{}
 	header.Add("Authorization", ex.token)
+	header.Add("Content-Type", "application/json")
 
 	uri := fmt.Sprintf("/images?page=%d", page)
-	_, body, err := ex.client.GetWithHeader(uri, header)
-
+	res, body, err := ex.client.GetWithHeader(uri, header)
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("request err: %s", string(body))
+		return nil, false, errors.New("invalid_response")
+	}
 	response := &imagesResponse{}
 	json.Unmarshal(body, response)
 	return response.Pictures, response.HasMore, err
@@ -63,8 +68,15 @@ func (ex external) getToken() string {
 		Auth  bool   `json:"auth"`
 	}{}
 
+	header := &http.Header{}
+	header.Add("Content-Type", "application/json")
+	
 	b, _ := json.Marshal(tokenRequest)
-	_, bytes, _ := ex.client.Post("/auth", b)
+	res, bytes, _ := ex.client.PostWithHeader("/auth", b, header)
+	if res.StatusCode != http.StatusOK {
+		fmt.Printf("auth err: %s, body: %s", string(bytes), string(b))
+		return ""
+	}
 
 	json.Unmarshal(bytes, &tokenResponse)
 
@@ -77,6 +89,6 @@ func (ex external) getToken() string {
 type imagesResponse struct {
 	Pictures  []images.Image `json:"pictures"`
 	Page      int            `json:"page"`
-	PageCount int            `json:"page_count"`
-	HasMore   bool           `json:"has_more"`
+	PageCount int            `json:"pageCount"`
+	HasMore   bool           `json:"hasMore"`
 }

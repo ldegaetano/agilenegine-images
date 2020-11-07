@@ -33,7 +33,7 @@ func (s service) GetImages(ir imagesRequest) imagesResponse {
 	}
 }
 
-func (s service) GetImagesByID(ir imagesRequest) Image {
+func (s service) GetImageByID(ir imagesRequest) Image {
 	pages := s.cache.GetPages()
 
 	var i Image
